@@ -4,10 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="ShishuKotha - Automated Moral Story Video Generation System">
-    <title>ShishuKotha - Story Generation Dashboard</title>
+    <title>ShishuKotha - Control Room Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -17,233 +19,250 @@
             <div class="header-content">
                 <div class="logo">
                     <h1>শিশুকথা</h1>
-                    <span class="logo-subtitle">ShishuKotha</span>
+                    <span class="logo-subtitle">ShishuKotha Control Room</span>
                 </div>
                 <div class="header-actions">
+                    <span class="connection-status" id="connectionStatus">
+                        <span class="status-dot offline"></span>
+                        Connecting...
+                    </span>
                     <button class="btn btn-secondary" id="refreshBtn">
                         <span class="icon">🔄</span>
                         Refresh
-                    </button>
-                    <button class="btn btn-primary" id="openSheetsBtn">
-                        <span class="icon">📊</span>
-                        Google Sheets
                     </button>
                 </div>
             </div>
         </div>
     </header>
-
     <!-- Main Content -->
     <main class="main-content">
         <div class="container">
-            
-            <!-- Status Hero Section -->
-            <section class="hero-section">
-                <div class="status-card glass-card">
-                    <div class="status-header">
-                        <h2>Today's Generation Status</h2>
-                        <span class="status-badge" id="statusBadge">Checking...</span>
-                    </div>
-                    <div class="status-content">
-                        <div class="status-grid">
-                            <div class="status-item">
-                                <span class="status-label">Last Generated</span>
-                                <span class="status-value" id="lastGenDate">--</span>
+            <!-- Live Status Panel -->
+            <section class="live-status-panel">
+                <div class="status-grid-main">
+                    <!-- Pipeline Status -->
+                    <div class="status-card glass-card pipeline-status">
+                        <div class="card-header">
+                            <h3>🎬 Pipeline Status</h3>
+                            <span class="live-indicator" id="liveIndicator">● LIVE</span>
+                        </div>
+                        <div class="pipeline-stages">
+                            <div class="stage" id="stageStory">
+                                <span class="stage-icon">📝</span>
+                                <span class="stage-name">Story</span>
+                                <span class="stage-status" id="stageStoryStatus">Idle</span>
                             </div>
-                            <div class="status-item">
-                                <span class="status-label">Story</span>
-                                <span class="status-value" id="currentStory">--</span>
+                            <div class="stage-arrow">→</div>
+                            <div class="stage" id="stageMedia">
+                                <span class="stage-icon">🖼️</span>
+                                <span class="stage-name">Media</span>
+                                <span class="stage-status" id="stageMediaStatus">Idle</span>
                             </div>
-                            <div class="status-item">
-                                <span class="status-label">Version</span>
-                                <span class="status-value" id="currentVersion">--</span>
-                            </div>
-                            <div class="status-item">
-                                <span class="status-label">Next Run</span>
-                                <span class="status-value" id="nextRun">Tomorrow 06:00 AM IST</span>
+                            <div class="stage-arrow">→</div>
+                            <div class="stage" id="stageVideo">
+                                <span class="stage-icon">🎥</span>
+                                <span class="stage-name">Video</span>
+                                <span class="stage-status" id="stageVideoStatus">Idle</span>
                             </div>
                         </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-                        </div>
-                        <p class="status-message" id="statusMessage">System ready</p>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Downloads Section -->
-            <section class="downloads-section">
-                <h2 class="section-title">Latest Videos</h2>
-                <div class="downloads-grid">
-                    <div class="download-card glass-card">
-                        <div class="download-header">
-                            <span class="language-badge bengali">🇧🇩 Bengali</span>
-                            <span class="version-tag" id="bnVersion">v1</span>
-                        </div>
-                        <div class="download-content">
-                            <div class="video-info">
-                                <p class="video-title" id="bnTitle">Loading...</p>
-                                <p class="video-meta" id="bnMeta">--</p>
-                            </div>
-                            <div class="download-actions">
-                                <a href="#" class="btn btn-download disabled" id="bnDownloadBtn">
-                                    <span class="icon">⬇️</span>
-                                    Download
-                                </a>
-                                <button class="btn btn-regenerate" id="bnRegenerateBtn">
-                                    <span class="icon">🔄</span>
-                                    Regenerate
-                                </button>
-                            </div>
+                        <div class="current-task" id="currentTask">
+                            <p>No active task</p>
                         </div>
                     </div>
-
-                    <div class="download-card glass-card">
-                        <div class="download-header">
-                            <span class="language-badge english">🇬🇧 English</span>
-                            <span class="version-tag" id="enVersion">v1</span>
+                    <!-- Video Generation Progress -->
+                    <div class="status-card glass-card video-progress">
+                        <div class="card-header">
+                            <h3>🎞️ Video Generation</h3>
+                            <span class="badge" id="videoLanguageBadge">--</span>
                         </div>
-                        <div class="download-content">
-                            <div class="video-info">
-                                <p class="video-title" id="enTitle">Loading...</p>
-                                <p class="video-meta" id="enMeta">--</p>
+                        <div class="progress-details">
+                            <div class="progress-stat">
+                                <span class="stat-label">Story</span>
+                                <span class="stat-value" id="videoStoryName">--</span>
                             </div>
-                            <div class="download-actions">
-                                <a href="#" class="btn btn-download disabled" id="enDownloadBtn">
-                                    <span class="icon">⬇️</span>
-                                    Download
-                                </a>
-                                <button class="btn btn-regenerate" id="enRegenerateBtn">
-                                    <span class="icon">🔄</span>
-                                    Regenerate
-                                </button>
+                            <div class="progress-stat">
+                                <span class="stat-label">Scene</span>
+                                <span class="stat-value" id="videoSceneProgress">-- / --</span>
                             </div>
                         </div>
+                        <div class="progress-bar large">
+                            <div class="progress-fill animated" id="videoProgressFill" style="width: 0%"></div>
+                        </div>
+                        <p class="progress-message" id="videoProgressMessage">No video generation in progress</p>
                     </div>
                 </div>
             </section>
-
-            <!-- Story Ideas Section -->
-            <section class="ideas-section">
-                <div class="section-header">
-                    <h2 class="section-title">Story Ideas</h2>
-                    <button class="btn btn-primary" id="generateIdeasBtn">
-                        <span class="icon">✨</span>
-                        Generate New Ideas
+            <!-- Error & Warnings Panel -->
+            <section class="alerts-section" id="alertsSection" style="display: none;">
+                <div class="alert-card glass-card error" id="errorAlert">
+                    <div class="alert-header">
+                        <span class="alert-icon">⚠️</span>
+                        <h4>Error Detected</h4>
+                        <button class="dismiss-btn" id="dismissError">✕</button>
+                    </div>
+                    <p class="alert-message" id="errorMessage">--</p>
+                    <p class="alert-time" id="errorTime">--</p>
+                </div>
+            </section>
+            <!-- API Status Section -->
+            <section class="api-status-section">
+                <h2 class="section-title">System Health</h2>
+                <div class="api-grid">
+                    <div class="api-card glass-card">
+                        <div class="api-icon">📝</div>
+                        <div class="api-info">
+                            <h4>Text Generation</h4>
+                            <p>Groq API (LLaMA)</p>
+                        </div>
+                        <span class="api-status-badge" id="textApiStatusBadge">Checking...</span>
+                    </div>
+                    <div class="api-card glass-card">
+                        <div class="api-icon">🖼️</div>
+                        <div class="api-info">
+                            <h4>Image Generation</h4>
+                            <p>Pollinations.AI</p>
+                        </div>
+                        <span class="api-status-badge online" id="imageApiStatusBadge">Online</span>
+                    </div>
+                    <div class="api-card glass-card">
+                        <div class="api-icon">🔊</div>
+                        <div class="api-info">
+                            <h4>Voice Generation</h4>
+                            <p>Google Cloud TTS</p>
+                        </div>
+                        <span class="api-status-badge" id="ttsApiStatusBadge">Checking...</span>
+                    </div>
+                    <div class="api-card glass-card">
+                        <div class="api-icon">🎥</div>
+                        <div class="api-info">
+                            <h4>Video Animation</h4>
+                            <p>Kling AI</p>
+                        </div>
+                        <span class="api-status-badge" id="videoApiStatusBadge">Checking...</span>
+                    </div>
+                    <div class="api-card glass-card">
+                        <div class="api-icon">⚙️</div>
+                        <div class="api-info">
+                            <h4>Apps Script</h4>
+                            <p>Backend Engine</p>
+                        </div>
+                        <span class="api-status-badge" id="backendStatusBadge">Connecting...</span>
+                    </div>
+                </div>
+            </section>
+            <!-- Story Queue & Downloads -->
+            <section class="main-panels">
+                <div class="panel-grid">
+                    <!-- Story Queue -->
+                    <div class="panel glass-card">
+                        <div class="panel-header">
+                            <h3>📚 Story Queue</h3>
+                            <button class="btn btn-small btn-primary" id="generateIdeasBtn">+ Generate Ideas</button>
+                        </div>
+                        <div class="story-queue" id="storyQueue">
+                            <div class="loading-placeholder">
+                                <div class="spinner"></div>
+                                <p>Loading stories...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Latest Downloads -->
+                    <div class="panel glass-card">
+                        <div class="panel-header">
+                            <h3>📥 Latest Videos</h3>
+                        </div>
+                        <div class="downloads-list" id="downloadsList">
+                            <div class="download-item">
+                                <div class="download-info">
+                                    <span class="language-tag bn">🇧🇩 Bengali</span>
+                                    <span class="title" id="bnVideoTitle">--</span>
+                                </div>
+                                <div class="download-actions">
+                                    <a href="#" class="btn btn-small btn-download disabled"
+                                        id="bnDownloadBtn">Download</a>
+                                    <button class="btn btn-small btn-outline" id="bnRegenerateBtn">Regenerate</button>
+                                </div>
+                            </div>
+                            <div class="download-item">
+                                <div class="download-info">
+                                    <span class="language-tag en">🇬🇧 English</span>
+                                    <span class="title" id="enVideoTitle">--</span>
+                                </div>
+                                <div class="download-actions">
+                                    <a href="#" class="btn btn-small btn-download disabled"
+                                        id="enDownloadBtn">Download</a>
+                                    <button class="btn btn-small btn-outline" id="enRegenerateBtn">Regenerate</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <!-- Control Buttons -->
+            <section class="control-section">
+                <h2 class="section-title">Controls</h2>
+                <div class="control-buttons">
+                    <button class="control-btn primary" id="startPipelineBtn">
+                        <span class="btn-icon">▶️</span>
+                        <span class="btn-text">Start Full Pipeline</span>
+                        <span class="btn-desc">Story → Media → Video</span>
                     </button>
-                </div>
-                <div class="ideas-tabs">
-                    <button class="tab-btn active" data-tab="approved">Approved</button>
-                    <button class="tab-btn" data-tab="pending">Pending Review</button>
-                    <button class="tab-btn" data-tab="all">All Ideas</button>
-                </div>
-                <div class="ideas-grid" id="ideasGrid">
-                    <!-- Story idea cards will be populated by JavaScript -->
-                    <div class="loading-placeholder">
-                        <div class="spinner"></div>
-                        <p>Loading story ideas...</p>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Control Panel Section -->
-            <section class="control-panel">
-                <h2 class="section-title">System Control</h2>
-                <div class="control-grid">
-                    <div class="control-card glass-card">
-                        <h3>Manual Generation</h3>
-                        <p>Trigger immediate video generation for next approved story</p>
-                        <button class="btn btn-primary btn-block" id="manualTriggerBtn">
-                            <span class="icon">▶️</span>
-                            Start Generation Now
-                        </button>
-                    </div>
-
-                    <div class="control-card glass-card">
-                        <h3>Quick Links</h3>
-                        <div class="quick-links">
-                            <a href="#" class="quick-link" id="driveLink">
-                                <span class="icon">📁</span>
-                                Open Drive Folder
-                            </a>
-                            <a href="#" class="quick-link" id="sheetsLink">
-                                <span class="icon">📊</span>
-                                Open Google Sheets
-                            </a>
-                            <a href="docs/SETUP.md" class="quick-link">
-                                <span class="icon">📖</span>
-                                Setup Guide
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="control-card glass-card">
-                        <h3>API Status</h3>
-                        <div class="api-status-list">
-                            <div class="api-status-item">
-                                <span class="status-dot" id="textApiStatus"></span>
-                                <span>Text Generation API</span>
-                            </div>
-                            <div class="api-status-item">
-                                <span class="status-dot" id="imageApiStatus"></span>
-                                <span>Image Generation API</span>
-                            </div>
-                            <div class="api-status-item">
-                                <span class="status-dot" id="ttsApiStatus"></span>
-                                <span>Text-to-Speech API</span>
-                            </div>
-                            <div class="api-status-item">
-                                <span class="status-dot" id="appsScriptStatus"></span>
-                                <span>Apps Script Backend</span>
-                            </div>
-                        </div>
-                    </div>
+                    <button class="control-btn secondary" id="startVideoOnlyBtn">
+                        <span class="btn-icon">🎬</span>
+                        <span class="btn-text">Generate Video Only</span>
+                        <span class="btn-desc">From existing media</span>
+                    </button>
+                    <a href="#" class="control-btn outline" id="openDriveBtn">
+                        <span class="btn-icon">📁</span>
+                        <span class="btn-text">Open Drive Folder</span>
+                        <span class="btn-desc">View all files</span>
+                    </a>
+                    <a href="#" class="control-btn outline" id="openSheetsBtn">
+                        <span class="btn-icon">📊</span>
+                        <span class="btn-text">Open Google Sheets</span>
+                        <span class="btn-desc">Manage data</span>
+                    </a>
                 </div>
             </section>
-
             <!-- Generation Log -->
             <section class="log-section">
-                <h2 class="section-title">Recent Generations</h2>
-                <div class="log-table-container glass-card">
+                <h2 class="section-title">Generation History</h2>
+                <div class="log-container glass-card">
                     <table class="log-table">
                         <thead>
                             <tr>
                                 <th>Date</th>
                                 <th>Story</th>
-                                <th>Languages</th>
-                                <th>Status</th>
-                                <th>Version</th>
-                                <th>Actions</th>
+                                <th>English</th>
+                                <th>Bengali</th>
+                                <th>Video</th>
                             </tr>
                         </thead>
                         <tbody id="logTableBody">
                             <tr>
-                                <td colspan="6" class="loading-cell">
+                                <td colspan="5" class="loading-cell">
                                     <div class="spinner"></div>
-                                    <span>Loading generation history...</span>
+                                    <span>Loading history...</span>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </section>
-
         </div>
     </main>
-
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
-            <p>&copy; 2026 ShishuKotha. Automated Moral Story Generation System</p>
-            <p class="footer-meta">Powered by Google Apps Script + AI</p>
+            <p>&copy; 2026 ShishuKotha Control Room</p>
+            <p class="footer-meta">Groq + Pollinations + Google TTS + Kling AI</p>
         </div>
     </footer>
-
     <!-- Toast Notification -->
     <div class="toast" id="toast">
+        <span class="toast-icon" id="toastIcon">✓</span>
         <span class="toast-message" id="toastMessage"></span>
     </div>
-
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-content">
@@ -251,7 +270,6 @@
             <p id="loadingMessage">Processing...</p>
         </div>
     </div>
-
     <!-- Scripts -->
     <script src="js/api.js"></script>
     <script src="js/ui.js"></script>
