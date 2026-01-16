@@ -2,11 +2,9 @@
  * StoryGenerator.gs - AI-Powered Story Generation
  * Handles story idea generation, expansion, and translation
  */
-
 // ========================================
 // STORY IDEA GENERATION
 // ========================================
-
 /**
  * Generate 10-15 story ideas with morals
  * @returns {number} Number of ideas generated
@@ -41,7 +39,6 @@ function generateStoryIdeas() {
     return generateDemoIdeas();
   }
 }
-
 /**
  * Parse AI response and save ideas to sheet
  * @param {string} response - AI response
@@ -72,7 +69,6 @@ function parseAndSaveIdeas(response) {
   
   return count;
 }
-
 /**
  * Generate demo story ideas (fallback)
  * @returns {number} Number of ideas generated
@@ -102,11 +98,9 @@ function generateDemoIdeas() {
   
   return demoIdeas.length;
 }
-
 // ========================================
 // STORY EXPANSION
 // ========================================
-
 /**
  * Expand a story idea into a scene-based script
  * @param {string} idea - Story idea/title
@@ -127,7 +121,6 @@ function expandStory(idea, moral) {
     const prompt = `Create a children's moral story based on this idea:
 Title: ${idea}
 Moral: ${moral}
-
 Requirements:
 - Create ${maxScenes} scenes
 - Each scene should be 2-3 sentences
@@ -145,7 +138,6 @@ Requirements:
     return createDemoStory(idea, moral);
   }
 }
-
 /**
  * Parse story response into scenes
  * @param {string} response - AI response
@@ -173,7 +165,6 @@ function parseStoryScenes(response, title, moral) {
     language: 'en'
   };
 }
-
 /**
  * Create demo story (fallback)
  * @param {string} title - Story title
@@ -195,11 +186,9 @@ function createDemoStory(title, moral) {
     language: 'en'
   };
 }
-
 // ========================================
 // TRANSLATION
 // ========================================
-
 /**
  * Translate story to Bengali
  * @param {object} story - Story object
@@ -216,13 +205,10 @@ function translateToBengali(story) {
     }
     
     const prompt = `Translate this children's story to Bengali. Maintain the scene structure:
-
 Title: ${story.title}
 Moral: ${story.moral}
-
 Scenes:
 ${story.scenes.map((s, i) => `${i + 1}. ${s}`).join('\n')}
-
 Provide translation in same format with SCENE [number]: [Bengali text]`;
     
     const response = callTextGenerationAPI(prompt, apiKey);
@@ -239,11 +225,9 @@ Provide translation in same format with SCENE [number]: [Bengali text]`;
     };
   }
 }
-
 // ========================================
 // SUBTITLE GENERATION
 // ========================================
-
 /**
  * Generate subtitles in SRT format
  * @param {object} story - Story object
@@ -267,7 +251,6 @@ function generateSubtitles(story, language) {
   
   return srt;
 }
-
 /**
  * Format time for SRT (HH:MM:SS,mmm)
  * @param {number} seconds - Time in seconds
@@ -281,11 +264,9 @@ function formatSRTTime(seconds) {
   
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
 }
-
 // ========================================
 // AI API INTEGRATION (PLACEHOLDER)
 // ========================================
-
 /**
  * Call text generation API
  * NOTE: This is a PLACEHOLDER function. Replace with your actual API integration.
@@ -307,7 +288,7 @@ function formatSRTTime(seconds) {
  * @returns {string} Generated text
  */
 function callTextGenerationAPI(prompt, apiKey) {
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key=' + apiKey;
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
   
   const payload = {
     contents: [{
