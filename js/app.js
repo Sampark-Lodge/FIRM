@@ -1,476 +1,400 @@
-// app.js - Main Application Logic
-
+// app.js - Control Room Application Logic
 // Global state
 let currentFilter = 'all';
 let autoRefreshInterval = null;
-
+let videoPollingInterval = null;
 // ========================================
 // Initialization
 // ========================================
-
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('ShishuKotha Dashboard initialized');
-
-    // Check if Web App URL is configured
-    checkConfiguration();
-
+    console.log('ShishuKotha Control Room initialized');
     // Initialize UI
     initializeEventListeners();
-
     // Load initial data
     await loadDashboardData();
-
-    // Start auto-refresh (every 60 seconds)
+    // Start auto-refresh (every 30 seconds)
     startAutoRefresh();
+    // Start video status polling (every 10 seconds)
+    startVideoPolling();
 });
-
-/**
- * Check if Web App URL is configured
- */
-function checkConfiguration() {
-    const savedUrl = localStorage.getItem('shishukotha_webapp_url');
-
-    if (!savedUrl || savedUrl === 'YOUR_APPS_SCRIPT_WEB_APP_URL_HERE') {
-        // Show configuration prompt
-        const url = prompt(
-            'Please enter your Google Apps Script Web App URL:\n\n' +
-            'To get this URL:\n' +
-            '1. Deploy your Apps Script as Web App\n' +
-            '2. Copy the deployment URL\n' +
-            '3. Paste it here'
-        );
-
-        if (url && url.trim()) {
-            setWebAppUrl(url.trim());
-            showSuccess('Configuration saved! Reloading dashboard...');
-            setTimeout(() => location.reload(), 1500);
-        } else {
-            showError('Web App URL is required. Please configure it to use the dashboard.');
-        }
-    }
-}
-
 /**
  * Initialize event listeners
  */
 function initializeEventListeners() {
-    // Header buttons
+    // Header
     document.getElementById('refreshBtn').addEventListener('click', handleRefresh);
-    document.getElementById('openSheetsBtn').addEventListener('click', handleOpenSheets);
-
-    // Download regenerate buttons
+    // Control buttons
+    document.getElementById('startPipelineBtn').addEventListener('click', handleStartPipeline);
+    document.getElementById('startVideoOnlyBtn').addEventListener('click', handleStartVideoOnly);
+    document.getElementById('generateIdeasBtn').addEventListener('click', handleGenerateIdeas);
+    // Download buttons
     document.getElementById('bnRegenerateBtn').addEventListener('click', () => handleRegenerate('bn'));
     document.getElementById('enRegenerateBtn').addEventListener('click', () => handleRegenerate('en'));
-
-    // Story ideas
-    document.getElementById('generateIdeasBtn').addEventListener('click', handleGenerateIdeas);
-
-    // Tabs
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            currentFilter = e.target.dataset.tab;
-            loadStoryIdeas();
-        });
-    });
-
-    // Control panel
-    document.getElementById('manualTriggerBtn').addEventListener('click', handleManualTrigger);
+    // Error dismiss
+    document.getElementById('dismissError')?.addEventListener('click', hideError);
 }
-
 /**
  * Load all dashboard data
  */
 async function loadDashboardData() {
-    showLoading('Loading dashboard data...');
-
+    showLoading('Loading control room data...');
     try {
-        // Load data in parallel
         await Promise.all([
             loadStatus(),
-            loadStoryIdeas(),
+            loadStoryQueue(),
             loadGenerationLog(),
             loadApiStatus(),
             loadQuickLinks()
         ]);
-
+        updateConnectionStatus(true);
         hideLoading();
     } catch (error) {
         hideLoading();
         console.error('Error loading dashboard:', error);
-        showError('Failed to load dashboard data. Using offline mode.');
-
-        // Load demo data for offline preview
-        // loadDemoData(); // Disabled as per user request to avoid confusion
+        updateConnectionStatus(false);
+        showError('Failed to connect to backend. Check your Apps Script deployment.');
     }
 }
-
-/**
- * Load system status
- */
+// ========================================
+// Status Loading
+// ========================================
 async function loadStatus() {
     try {
         const status = await getStatus();
-        updateStatusDisplay(status);
-
-        if (status.downloads) {
-            updateDownloadLinks(status.downloads);
-        }
+        updatePipelineStatus(status);
+        updateVideoProgress(status.videoState);
+        updateDownloads(status.downloads);
     } catch (error) {
         console.error('Error loading status:', error);
         throw error;
     }
 }
-
-/**
- * Load story ideas
- */
-async function loadStoryIdeas() {
-    try {
-        const response = await getStoryIdeas(currentFilter);
-        if (response.success && Array.isArray(response.data)) {
-            renderStoryIdeas(response.data, currentFilter);
-        } else {
-            console.error('Invalid story ideas data:', response);
-            renderStoryIdeas([], currentFilter);
-        }
-    } catch (error) {
-        console.error('Error loading story ideas:', error);
-        throw error;
+function updateConnectionStatus(connected) {
+    const el = document.getElementById('connectionStatus');
+    if (connected) {
+        el.innerHTML = '<span class="status-dot online"></span> Connected';
+        el.classList.add('connected');
+    } else {
+        el.innerHTML = '<span class="status-dot offline"></span> Disconnected';
+        el.classList.remove('connected');
     }
 }
-
-/**
- * Load generation log
- */
-async function loadGenerationLog() {
-    try {
-        const response = await getGenerationLog(10);
-        if (response.success && Array.isArray(response.data)) {
-            renderGenerationLog(response.data);
-        } else {
-            console.error('Invalid generation log data:', response);
-            renderGenerationLog([]);
-        }
-    } catch (error) {
-        console.error('Error loading generation log:', error);
-        throw error;
+function updatePipelineStatus(status) {
+    // Update current task
+    const taskEl = document.getElementById('currentTask');
+    if (status.videoState) {
+        taskEl.innerHTML = `<p><strong>Active:</strong> Generating ${status.videoState.language === 'bn' ? 'Bengali' : 'English'} video for "${status.videoState.storyFolderName}"</p>`;
+        document.getElementById('liveIndicator').classList.add('active');
+    } else if (status.status === 'Pending') {
+        taskEl.innerHTML = '<p>No active task. Ready to generate.</p>';
+        document.getElementById('liveIndicator').classList.remove('active');
+    } else {
+        taskEl.innerHTML = `<p>Last: ${status.currentStory || '--'}</p>`;
+    }
+    // Update stage indicators (simplified)
+    updateStageStatus('stageStory', status.status);
+    updateStageStatus('stageMedia', status.status);
+    updateStageStatus('stageVideo', status.videoState ? 'active' : 'idle');
+}
+function updateStageStatus(stageId, status) {
+    const el = document.getElementById(stageId);
+    const statusEl = document.getElementById(stageId + 'Status');
+    if (!el || !statusEl) return;
+    el.classList.remove('active', 'complete', 'error');
+    if (status === 'active' || status === 'Generating Video') {
+        el.classList.add('active');
+        statusEl.textContent = 'Active';
+    } else if (status === 'Success' || status === 'Generated') {
+        el.classList.add('complete');
+        statusEl.textContent = 'Done';
+    } else if (status === 'Failed') {
+        el.classList.add('error');
+        statusEl.textContent = 'Error';
+    } else {
+        statusEl.textContent = 'Idle';
     }
 }
-
-/**
- * Load API status
- */
+function updateVideoProgress(videoState) {
+    const progressFill = document.getElementById('videoProgressFill');
+    const progressMessage = document.getElementById('videoProgressMessage');
+    const storyName = document.getElementById('videoStoryName');
+    const sceneProgress = document.getElementById('videoSceneProgress');
+    const languageBadge = document.getElementById('videoLanguageBadge');
+    if (videoState) {
+        const current = videoState.currentScene - 1;
+        const total = videoState.totalScenes;
+        const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+        progressFill.style.width = percent + '%';
+        storyName.textContent = videoState.storyFolderName || '--';
+        sceneProgress.textContent = `${current} / ${total}`;
+        languageBadge.textContent = videoState.language === 'bn' ? 'Bengali' : 'English';
+        languageBadge.classList.add('active');
+        progressMessage.textContent = videoState.status === 'running'
+            ? `Animating scene ${videoState.currentScene}...`
+            : 'Processing...';
+    } else {
+        progressFill.style.width = '0%';
+        storyName.textContent = '--';
+        sceneProgress.textContent = '-- / --';
+        languageBadge.textContent = '--';
+        languageBadge.classList.remove('active');
+        progressMessage.textContent = 'No video generation in progress';
+    }
+}
+function updateDownloads(downloads) {
+    if (!downloads) return;
+    if (downloads.bengali) {
+        document.getElementById('bnVideoTitle').textContent = downloads.bengali.title || 'Available';
+        const bnBtn = document.getElementById('bnDownloadBtn');
+        if (downloads.bengali.url) {
+            bnBtn.href = downloads.bengali.url;
+            bnBtn.classList.remove('disabled');
+        }
+    }
+    if (downloads.english) {
+        document.getElementById('enVideoTitle').textContent = downloads.english.title || 'Available';
+        const enBtn = document.getElementById('enDownloadBtn');
+        if (downloads.english.url) {
+            enBtn.href = downloads.english.url;
+            enBtn.classList.remove('disabled');
+        }
+    }
+}
+// ========================================
+// Story Queue
+// ========================================
+async function loadStoryQueue() {
+    try {
+        const response = await getStoryIdeas('approved');
+        renderStoryQueue(response.data || []);
+    } catch (error) {
+        console.error('Error loading story queue:', error);
+    }
+}
+function renderStoryQueue(ideas) {
+    const container = document.getElementById('storyQueue');
+    if (!ideas || ideas.length === 0) {
+        container.innerHTML = '<p class="empty-message">No approved stories. Add ideas in Google Sheets.</p>';
+        return;
+    }
+    container.innerHTML = ideas.slice(0, 5).map(idea => `
+        <div class="queue-item">
+            <span class="queue-number">#${idea.id || idea.sl}</span>
+            <span class="queue-title">${idea.idea}</span>
+            <span class="queue-moral">${idea.moral}</span>
+        </div>
+    `).join('');
+}
+// ========================================
+// API Status
+// ========================================
 async function loadApiStatus() {
     try {
-        const apiStatus = await checkApiStatus();
-        updateApiStatus(apiStatus);
+        const status = await checkApiStatus();
+        updateApiStatusGrid(status);
+        document.getElementById('backendStatusBadge').textContent = 'Online';
+        document.getElementById('backendStatusBadge').classList.add('online');
     } catch (error) {
-        console.error('Error checking API status:', error);
-        // Don't throw, just show checking status
-        updateApiStatus(null);
+        document.getElementById('backendStatusBadge').textContent = 'Offline';
+        document.getElementById('backendStatusBadge').classList.add('offline');
     }
 }
-
-/**
- * Load quick links
- */
+function updateApiStatusGrid(status) {
+    if (!status) return;
+    setApiBadge('textApiStatusBadge', status.textApi);
+    setApiBadge('imageApiStatusBadge', status.imageApi || 'online'); // Pollinations always online
+    setApiBadge('ttsApiStatusBadge', status.ttsApi);
+    setApiBadge('videoApiStatusBadge', 'online'); // Kling configured
+}
+function setApiBadge(id, status) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('online', 'offline', 'checking');
+    if (status === 'online') {
+        el.textContent = 'Online';
+        el.classList.add('online');
+    } else if (status === 'offline') {
+        el.textContent = 'Offline';
+        el.classList.add('offline');
+    } else {
+        el.textContent = 'Checking...';
+        el.classList.add('checking');
+    }
+}
+// ========================================
+// Generation Log
+// ========================================
+async function loadGenerationLog() {
+    try {
+        const response = await getGenerationLog(5);
+        renderGenerationLog(response.data || []);
+    } catch (error) {
+        console.error('Error loading generation log:', error);
+    }
+}
+function renderGenerationLog(logs) {
+    const tbody = document.getElementById('logTableBody');
+    if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No generation history yet</td></tr>';
+        return;
+    }
+    tbody.innerHTML = logs.map(log => `
+        <tr>
+            <td>${log.date || '--'}</td>
+            <td>${log.title || log.storyId || '--'}</td>
+            <td><span class="status-badge ${log.enStatus === 'Success' ? 'success' : 'pending'}">${log.enStatus || '--'}</span></td>
+            <td><span class="status-badge ${log.bnStatus === 'Success' ? 'success' : 'pending'}">${log.bnStatus || '--'}</span></td>
+            <td><span class="status-badge">--</span></td>
+        </tr>
+    `).join('');
+}
+// ========================================
+// Quick Links
+// ========================================
 async function loadQuickLinks() {
     try {
         const [sheetsUrl, driveUrl] = await Promise.all([
             getSheetsUrl(),
             getDriveFolderUrl()
         ]);
-
-        updateQuickLinks(sheetsUrl, driveUrl);
+        document.getElementById('openSheetsBtn').href = sheetsUrl || '#';
+        document.getElementById('openDriveBtn').href = driveUrl || '#';
     } catch (error) {
         console.error('Error loading quick links:', error);
-        // Don't throw, links are optional
     }
 }
-
 // ========================================
 // Event Handlers
 // ========================================
-
-/**
- * Handle refresh button click
- */
 async function handleRefresh() {
     await loadDashboardData();
-    showSuccess('Dashboard refreshed');
+    showToast('Dashboard refreshed', 'success');
 }
-
-/**
- * Handle open sheets button click
- */
-async function handleOpenSheets() {
+async function handleStartPipeline() {
+    if (!confirm('Start full pipeline (Story → Media → Video)?')) return;
+    showLoading('Starting pipeline...');
     try {
-        const url = await getSheetsUrl();
-        window.open(url, '_blank');
+        const response = await triggerGeneration();
+        hideLoading();
+        if (response.success) {
+            showToast('Pipeline started! Monitor progress above.', 'success');
+            setTimeout(() => loadDashboardData(), 2000);
+        } else {
+            showError(response.message || 'Failed to start pipeline');
+        }
     } catch (error) {
-        showError('Failed to open Google Sheets');
+        hideLoading();
+        showError('Failed to start pipeline: ' + error.message);
     }
 }
-
-/**
- * Handle regenerate video
- * @param {string} language - Language code ('bn' or 'en')
- */
+async function handleStartVideoOnly() {
+    const storyName = prompt('Enter story folder name (e.g., "the_greedy_dog"):');
+    if (!storyName) return;
+    const language = prompt('Language? Enter "en" for English or "bn" for Bengali:', 'bn');
+    if (!language) return;
+    showLoading('Starting video generation...');
+    try {
+        const response = await regenerateVideo(storyName, language);
+        hideLoading();
+        if (response.success) {
+            showToast('Video generation started!', 'success');
+            setTimeout(() => loadDashboardData(), 2000);
+        } else {
+            showError(response.message || 'Failed to start video generation');
+        }
+    } catch (error) {
+        hideLoading();
+        showError('Failed to start video: ' + error.message);
+    }
+}
 async function handleRegenerate(language) {
-    const confirmed = confirm(
-        `Are you sure you want to regenerate the ${language === 'bn' ? 'Bengali' : 'English'} video?\n\n` +
-        'This will create a new version and may take several minutes.'
-    );
-
-    if (!confirmed) return;
-
-    showLoading(`Regenerating ${language === 'bn' ? 'Bengali' : 'English'} video...`);
-
+    if (!confirm(`Regenerate ${language === 'bn' ? 'Bengali' : 'English'} video?`)) return;
+    showLoading('Starting regeneration...');
     try {
         const response = await regenerateVideo('current', language);
         hideLoading();
-
         if (response.success) {
-            showSuccess('Video regeneration started! Check back in a few minutes.');
-            setTimeout(() => loadDashboardData(), 2000);
+            showToast('Video regeneration started!', 'success');
         } else {
-            showError(response.message || 'Failed to start regeneration');
+            showError(response.message || 'Failed to regenerate');
         }
     } catch (error) {
         hideLoading();
-        console.error('Error regenerating video:', error);
-        showError('Failed to regenerate video. Please try again.');
+        showError('Regeneration failed: ' + error.message);
     }
 }
-
-/**
- * Handle approve idea
- * @param {number} id - Story idea ID
- */
-async function handleApproveIdea(id) {
-    showLoading('Approving story idea...');
-
-    try {
-        const response = await approveIdea(id);
-        hideLoading();
-
-        if (response.success) {
-            showSuccess('Story idea approved!');
-            await loadStoryIdeas();
-        } else {
-            showError(response.message || 'Failed to approve idea');
-        }
-    } catch (error) {
-        hideLoading();
-        console.error('Error approving idea:', error);
-        showError('Failed to approve idea. Please try again.');
-    }
-}
-
-/**
- * Handle reject idea
- * @param {number} id - Story idea ID
- */
-async function handleRejectIdea(id) {
-    const confirmed = confirm('Are you sure you want to reject this story idea?');
-    if (!confirmed) return;
-
-    showLoading('Rejecting story idea...');
-
-    try {
-        const response = await rejectIdea(id);
-        hideLoading();
-
-        if (response.success) {
-            showSuccess('Story idea rejected');
-            await loadStoryIdeas();
-        } else {
-            showError(response.message || 'Failed to reject idea');
-        }
-    } catch (error) {
-        hideLoading();
-        console.error('Error rejecting idea:', error);
-        showError('Failed to reject idea. Please try again.');
-    }
-}
-
-/**
- * Handle generate new ideas
- */
 async function handleGenerateIdeas() {
-    const confirmed = confirm(
-        'Generate 10-15 new story ideas?\n\n' +
-        'This will use your AI API and add new ideas to the pending list.'
-    );
-
-    if (!confirmed) return;
-
-    showLoading('Generating new story ideas...');
-
+    if (!confirm('Generate new story ideas?')) return;
+    showLoading('Generating ideas...');
     try {
         const response = await generateNewIdeas();
         hideLoading();
-
         if (response.success) {
-            showSuccess(`Generated ${response.count || 'new'} story ideas!`);
-            await loadStoryIdeas();
+            showToast('Ideas generated!', 'success');
+            await loadStoryQueue();
         } else {
             showError(response.message || 'Failed to generate ideas');
         }
     } catch (error) {
         hideLoading();
-        console.error('Error generating ideas:', error);
-        showError('Failed to generate ideas. Please check your API configuration.');
+        showError('Failed to generate ideas: ' + error.message);
     }
 }
-
-/**
- * Handle manual trigger
- */
-async function handleManualTrigger() {
-    const confirmed = confirm(
-        'Start video generation now?\n\n' +
-        'This will generate videos for the next approved story in both Bengali and English.\n' +
-        'The process may take 5-10 minutes.'
-    );
-
-    if (!confirmed) return;
-
-    showLoading('Starting video generation...');
-
-    try {
-        const response = await triggerGeneration();
-        hideLoading();
-
-        if (response.success) {
-            showSuccess('Video generation started! Monitor the status above.');
-            setTimeout(() => loadDashboardData(), 2000);
-        } else {
-            showError(response.message || 'Failed to start generation');
-        }
-    } catch (error) {
-        hideLoading();
-        console.error('Error triggering generation:', error);
-        showError('Failed to start generation. Please try again.');
-    }
+// ========================================
+// Error Display
+// ========================================
+function showError(message) {
+    const section = document.getElementById('alertsSection');
+    const msgEl = document.getElementById('errorMessage');
+    const timeEl = document.getElementById('errorTime');
+    msgEl.textContent = message;
+    timeEl.textContent = new Date().toLocaleTimeString();
+    section.style.display = 'block';
 }
-
+function hideError() {
+    document.getElementById('alertsSection').style.display = 'none';
+}
 // ========================================
-// Auto-refresh
+// Toast & Loading
 // ========================================
-
-/**
- * Start auto-refresh interval
- */
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    const icon = document.getElementById('toastIcon');
+    const msg = document.getElementById('toastMessage');
+    icon.textContent = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
+    msg.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+function showLoading(message = 'Processing...') {
+    document.getElementById('loadingMessage').textContent = message;
+    document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() {
+    document.getElementById('loadingOverlay').classList.remove('show');
+}
+// ========================================
+// Auto-refresh & Polling
+// ========================================
 function startAutoRefresh() {
-    // Refresh every 60 seconds
     autoRefreshInterval = setInterval(async () => {
-        console.log('Auto-refreshing dashboard...');
         try {
             await loadStatus();
             await loadApiStatus();
         } catch (error) {
             console.error('Auto-refresh error:', error);
         }
-    }, 60000);
+    }, 30000);
 }
-
-/**
- * Stop auto-refresh interval
- */
-function stopAutoRefresh() {
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-        autoRefreshInterval = null;
-    }
+function startVideoPolling() {
+    videoPollingInterval = setInterval(async () => {
+        try {
+            const status = await getStatus();
+            if (status.videoState) {
+                updateVideoProgress(status.videoState);
+            }
+        } catch (error) {
+            // Silently fail polling
+        }
+    }, 10000);
 }
-
-// ========================================
-// Demo Data (for offline preview)
-// ========================================
-
-/**
- * Load demo data for offline preview
- */
-function loadDemoData() {
-    console.log('Loading demo data for offline preview');
-
-    // Demo status
-    updateStatusDisplay({
-        status: 'Pending',
-        lastGenDate: new Date().toLocaleDateString(),
-        currentStory: 'The Honest Woodcutter',
-        version: 'v1',
-        progress: 0,
-        message: 'Offline Mode - Demo Data'
-    });
-
-    // Demo downloads
-    updateDownloadLinks({
-        bengali: {
-            title: 'সৎ কাঠুরিয়া (Demo)',
-            date: new Date().toLocaleDateString(),
-            version: 'v1',
-            url: null
-        },
-        english: {
-            title: 'The Honest Woodcutter (Demo)',
-            date: new Date().toLocaleDateString(),
-            version: 'v1',
-            url: null
-        }
-    });
-
-    // Demo story ideas
-    const demoIdeas = [
-        {
-            sl: 1,
-            idea: 'The Honest Woodcutter',
-            moral: 'Honesty is always rewarded',
-            approved: 'Yes',
-            status: 'Pending'
-        },
-        {
-            sl: 2,
-            idea: 'The Greedy Dog',
-            moral: 'Greed leads to loss',
-            approved: 'No',
-            status: 'Pending'
-        },
-        {
-            sl: 3,
-            idea: 'The Ant and the Grasshopper',
-            moral: 'Hard work pays off',
-            approved: 'Yes',
-            status: 'Pending'
-        }
-    ];
-    renderStoryIdeas(demoIdeas, currentFilter);
-
-    // Demo generation log
-    const demoLogs = [
-        {
-            date: new Date().toLocaleDateString(),
-            storyId: 'The Kind Lion',
-            language: 'BN, EN',
-            status: 'Generated',
-            version: 'v1',
-            driveLink: '#'
-        }
-    ];
-    renderGenerationLog(demoLogs);
-
-    // Demo API status
-    updateApiStatus({
-        textApi: 'checking',
-        imageApi: 'checking',
-        ttsApi: 'checking',
-        appsScript: 'offline'
-    });
-}
-
-// Make handlers available globally for inline event handlers
-window.handleApproveIdea = handleApproveIdea;
-window.handleRejectIdea = handleRejectIdea;
