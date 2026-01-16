@@ -288,26 +288,26 @@ function formatSRTTime(seconds) {
  * @returns {string} Generated text
  */
 function callTextGenerationAPI(prompt, apiKey) {
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+  // Using Groq API - fast and free!
+  const url = 'https://api.groq.com/openai/v1/chat/completions';
   
   const payload = {
-    contents: [{
-      parts: [{
-        text: prompt
-      }]
-    }],
-    generationConfig: {
-      temperature: 0.7,
-      topK: 40,
-      topP: 0.95,
-      maxOutputTokens: 2048,
-    }
+    model: 'llama-3.3-70b-versatile',
+    messages: [
+      {
+        role: 'user',
+        content: prompt
+      }
+    ],
+    temperature: 0.7,
+    max_tokens: 2048
   };
   
   const options = {
     method: 'post',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey
     },
     payload: JSON.stringify(payload),
     muteHttpExceptions: true
@@ -319,15 +319,15 @@ function callTextGenerationAPI(prompt, apiKey) {
     const responseText = response.getContentText();
     
     if (responseCode !== 200) {
-      throw new Error(`Gemini API Error (${responseCode}): ${responseText}`);
+      throw new Error('Groq API Error (' + responseCode + '): ' + responseText);
     }
     
     const data = JSON.parse(responseText);
     
-    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-      return data.candidates[0].content.parts[0].text;
+    if (data.choices && data.choices[0] && data.choices[0].message) {
+      return data.choices[0].message.content;
     } else {
-      throw new Error('Invalid response structure from Gemini API: ' + responseText);
+      throw new Error('Invalid response structure from Groq API: ' + responseText);
     }
     
   } catch (error) {
